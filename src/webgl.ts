@@ -3,6 +3,10 @@ import { ERROR } from './utils'
 export const canvas = document.querySelector('canvas')!
 export const gl = canvas.getContext('webgl')!
 
+if (!gl) {
+  alert('Failed to create GL context')
+}
+
 export const loadShader = (gl: WebGLRenderingContext, shaderSource: string, shaderType: number) => {
   const shader = gl.createShader(shaderType)!
   gl.shaderSource(shader, shaderSource)
@@ -10,9 +14,9 @@ export const loadShader = (gl: WebGLRenderingContext, shaderSource: string, shad
   const compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS)
 
   if (!compiled) {
-    // Something went wrong during compilation get the error
-    const lastError = gl.getShaderInfoLog(shader)
-    ERROR(shader + '\':' + lastError + '\n' + shaderSource.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n'))
+    // const lastError = gl.getShaderInfoLog(shader)
+    // ERROR(shader + '\':' + lastError + '\n' + shaderSource.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n'))
+    alert('Failed to compile shader')
     gl.deleteShader(shader)
   }
 
@@ -53,7 +57,6 @@ const setupBuffers = (gl: WebGLRenderingContext, shader: WebGLProgram) => {
     1, 0,
   ])
 
-  // texCoords are the same as vertex positions
   gl.enableVertexAttribArray(positionLocation)
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
   gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
@@ -78,7 +81,6 @@ export const createFbo = (gl: WebGLRenderingContext, w: number, h: number) => {
   const fbo = gl.createFramebuffer()
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-  // gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
   return [fbo, texture]
 }
@@ -88,7 +90,6 @@ export const loadImage = async (url: string) => {
   const image = new Image()
   image.src = url
   return new Promise<HTMLImageElement>((resolve) => {
-    // image.addEventListener('load', () => resolve(image), { once: true })
     image.onload = () => resolve(image)
   })
 }

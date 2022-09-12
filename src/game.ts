@@ -2,15 +2,25 @@ import { getKeyPressed } from './input'
 import { createEntity, Entity, updateEntity } from './entity'
 import { createSoul, Soul, updateSoul } from './soul'
 import { Attack, updateAttack } from './attack'
-import { HEIGHT, sprite, SPRITE_BLACK_SQUARE, SPRITE_CONGRATS, SPRITE_ENTITY, SPRITE_LIGHTNING, SPRITE_LOGO, SPRITE_POINTER, SPRITE_PORTAL, SPRITE_SOUL, SPRITE_FRAME, text, WIDTH } from './renderer'
+import { HEIGHT, sprite, SPRITE_BLACK_SQUARE, SPRITE_CONGRATS, SPRITE_ENTITY, SPRITE_LIGHTNING, SPRITE_LOGO, SPRITE_POINTER, SPRITE_PORTAL, SPRITE_SOUL, SPRITE_FRAME, text, WIDTH, SPRITE_LABEL, SPRITE_TEXT_TOTAL, SPRITE_KEYBOARD_MANUAL, SPRITE_TEXT_PRESS_RETURN } from './renderer'
 import { levelEditor } from './levelEditor'
 import { FRAMERATE, MAP_PICKUP, MAP_PLAYER_SPAWN, MAP_SOUL_SPAWN, TYPE_PROTAGONIST } from './constants'
-import { getPositionFromIndex, MAP_HEIGHT, MAP_SIZE, MAP_WIDTH, renderMap } from './map'
-import { cos, decode } from './utils'
+import { getPositionFromIndex, Map, MAP_SIZE, MAP_WIDTH, renderMap } from './map'
+import { cos, decode, toNumber } from './utils'
 import stages from './stages'
 import { SND_DIE, SND_HIT, SND_LIGHTNING, SND_PICKUP2, sound } from './sound'
 
+export let tmpTimeouts: any[] = []
+export let personalBest = Number(localStorage.getItem('soulboy-pb')) || 0
+
+
+export const MENU_OPTIONS = [
+  { x: WIDTH / 2 - 32, y: 128 },
+  { x: WIDTH / 2 + 32, y: 128 },
+]
+
 export interface Game {
+  started: boolean
   t: number
   stageTimer: number
   stageTimes: number[]
@@ -20,11 +30,14 @@ export interface Game {
   attacks: Attack[]
   shake: number
   map: number[][]
+  levelEditorMap: number[][]
   levelEditor: boolean
   introLightning: number
+  transition: number
 }
 
 export const createGame = (): Game => ({
+  started: false,
   t: 0,
   stageTimer: -1,
   stageTimes: [],
@@ -33,10 +46,22 @@ export const createGame = (): Game => ({
   map: new Array(MAP_SIZE).fill([0, 0]),
   attacks: [],
   ents: [],
-  souls: [],
+  souls: [createSoul(0, 0, 0)],
   levelEditor: false,
+  levelEditorMap: new Array(MAP_SIZE).fill([0, 0]),
   introLightning: 0,
+  transition: 0,
 })
+
+export const enterLevelEditor = (game: Game) => {
+  clearGame(game)
+  gotoStage(game, -1)
+  game.levelEditor = true
+  game.souls[0].x = WIDTH / 2
+  game.souls[0].y = HEIGHT / 2
+  game.souls[0].xs = 0
+  game.souls[0].ys = 0
+}
 
 export const updateGame = (game: Game) => {
   if (!game.stage) {
@@ -58,28 +83,71 @@ export const updateGame = (game: Game) => {
         sound(SND_LIGHTNING)
       }
     }
-    if (getKeyPressed('enter')) {
-      setupGame(game, 1)
+  }
+
+  const closestOption = MENU_OPTIONS.findIndex((x, i) => {
+    const soul = game.souls[0]
+    if (soul) {
+      const dx = x.x - soul.x, dy = x.y - soul.y
+      const d = Math.sqrt(dx * dx + dy * dy)
+      if (d < 32)
+        return true
+    }
+  })
+
+
+  if (getKeyPressed('x')) {
+    if (!game.stage && closestOption > -1) {
+      if (closestOption === 0)
+        gotoStage(game, 1)
+      if (closestOption === 1) {
+        enterLevelEditor(game)
+      }
+    }
+    if (game.stage === stages.length - 1 && game.stageTimer > 1200)
+      gotoStage(game, 0)
+  }
+
+  if (getKeyPressed('enter')) {
+    if (!game.started) {
+      game.started = true
+    }
+    if (!game.stage && game.t > 120 && !game.ents[0].dead) {
+      game.ents[0].x = 128
+      game.ents[0].y = HEIGHT - 64
     }
   }
-  // if (game.levelEditor) {
-  //   if (getKeyPressed('enter')) {
-  //     setupGame(game, 1)
-  //   }
-  // }
-  if (getKeyPressed('0')) {
-    game.levelEditor = !game.levelEditor
-    clearGame(game)
-    setupGame(game, -1)
+
+  if (getKeyPressed('escape')) {
+    if (game.levelEditor || game.stage > 0 && game.stage < stages.length - 1) {
+      // EXIT TO MENU
+      gotoStage(game, 0)
+    } else if (game.stage < 0) {
+      // EXIT LEVEL EDTIOR STAGE
+      enterLevelEditor(game)
+    }
   }
-  if (getKeyPressed('+')) {
-    setupGame(game, Math.min(stages.length - 1, game.stage + 1))
-  }
+
   if (getKeyPressed('r')) {
-    setupGame(game, game.stage)
+    if (!game.levelEditor && game.stage < 0) {
+      // RESTART LEVEL EDITOR STAGE
+      game.levelEditor = false
+      setupGame(game, game.levelEditorMap)
+    } else if (game.stage > 0 && game.stage < stages.length - 1) {
+      gotoStage(game, game.stage)
+    }
   }
+
+  // DEBUG
+  // if (getKeyPressed('0')) {
+  //   game.levelEditorMap = game.map
+  //   game.levelEditor = !game.levelEditor
+  // }
+  // if (getKeyPressed('+')) {
+  //   gotoStage(game, Math.min(stages.length - 1, game.stage + 1))
+  // }
   // if (getKeyPressed('t')) {
-  //   setupGame(game, 0)
+  //   gotoStage(game, 0)
   // }
 
   const frame = () => {
@@ -106,10 +174,6 @@ export const updateGame = (game: Game) => {
         sprite(SPRITE_SOUL, 0, 16, HEIGHT - 20)
       }
     })
-
-    if (!game.stage && game.ents[0].dead) {
-      sprite(SPRITE_LOGO, 0, WIDTH / 2 - 48, 48)
-    }
 
     const stageTimer = game.stageTimer > 0 ? game.stageTimer : 0
 
@@ -139,48 +203,85 @@ export const updateGame = (game: Game) => {
       }
     }
 
+    sprite(SPRITE_KEYBOARD_MANUAL, 0, WIDTH - 56, HEIGHT - 24)
+
     // ENDING
     if (game.stage === stages.length - 1) {
       const t = Math.max(0, game.stageTimer - 360)
+      const totalTime = game.stageTimes.slice(1, stages.length - 2).reduce((p, x) => p + x, 0)
       if (game.stageTimer > 240)
         sprite(SPRITE_CONGRATS, 0, WIDTH / 2 - 16, 32)
       if (t > 0) {
         const ii = t / 60 | 0
-        if (t % 60 === 0 && ii <= stages.length) {
+        if (t % 60 === 0 && ii <= stages.length - 2) {
           sound(SND_HIT)
         }
-        if (ii === stages.length + 1) {
+
+        if (t === 60 * stages.length) {
           sound(SND_PICKUP2)
+          if (!personalBest || totalTime < personalBest) {
+            localStorage.setItem('soulboy-pb', String(totalTime))
+            personalBest = totalTime
+          }
         }
-        for (let i = 0; i < Math.min(stages.length, ii); i++) {
+
+        for (let i = 0; i < Math.min(stages.length - 2, ii); i++) {
+          const time = game.stageTimes[i + 1]
           const x = i % 3
           const y = i / 3 | 0
-          text(':==' + (game.stageTimes[i] / FRAMERATE | 0), 96 + x * 32, 64 + y * 16)
+          text(':==' + (time / FRAMERATE | 0), 96 + x * 32, 56 + y * 16)
+        }
+        if (t > 60 * stages.length) {
+          sprite(SPRITE_TEXT_TOTAL, 0, 96, 128 + 16, [])
+          text(':==' + (totalTime / FRAMERATE | 0), 96 + 32, 128 + 16)
+        }
+        if (t > 60 * stages.length) {
+          const isPersonalBest = personalBest === totalTime
+          sprite(SPRITE_LABEL, 2 + toNumber(isPersonalBest), 96, 128 + 32, [])
         }
       }
     }
   }
 
+  // MENU
   if (!game.stage) {
-    const options = 1
-    if (game.ents[0].dead)
-      for (let x = options; x--;)
+    if (game.ents[0].dead) {
+      sprite(SPRITE_LOGO, 0, WIDTH / 2 - 48, 48)
+      MENU_OPTIONS.forEach((option, i) => {
         for (let i = 3; i--;)
-          sprite(SPRITE_PORTAL, 0, 128 + x * 64, 128, [,, game.t * (1 + i) / 40])
+          sprite(SPRITE_PORTAL, 0, option.x - 8, option.y - 8, [,, game.t * (1 + i) / 40])
+        if (closestOption === i) {
+          sprite(SPRITE_LABEL, i, option.x - 16, option.y - 20, [,, cos(i + game.t * .01) * .1])
+          if (closestOption === 0 && personalBest)
+            text(':==' + (personalBest / FRAMERATE | 0), option.x - 16, option.y - 32)
+        }
+      })
+    }
 
     if (game.introLightning > 0) {
       sprite(SPRITE_LIGHTNING, 0, game.ents[0].x + Math.random() * 4 - 2, game.ents[0].y + Math.random() * 4 - 2, [10, 13])
       game.introLightning -= .1
     }
   }
-  renderMap(game.map, game.levelEditor)
-  game.ents.map((x) => updateEntity(game, x)),
-  game.souls.map((x) => updateSoul(game, x)),
-  game.attacks.map((x) => updateAttack(game, x)),
-  frame()
-  hud()
 
-  game.t++
+  if (game.started) {
+    if (game.levelEditor)
+      renderMap(game.levelEditorMap, true)
+    else
+      renderMap(game.map)
+    game.ents.map((x) => updateEntity(game, x))
+    game.souls.map((x) => updateSoul(game, x))
+    game.attacks.map((x) => updateAttack(game, x))
+    frame()
+    hud()
+  } else {
+    sprite(SPRITE_TEXT_PRESS_RETURN, 0, WIDTH / 2 - 16, HEIGHT / 2)
+  }
+
+
+  if (game.started)
+    game.t++
+
   game.shake -= game.shake * .1
   if (game.stageTimer > -1) {
     game.stageTimer++
@@ -188,26 +289,19 @@ export const updateGame = (game: Game) => {
 }
 
 export const clearGame = (game: Game) => {
+  tmpTimeouts.forEach(clearTimeout)
+  tmpTimeouts = []
   game.t = 0
-  game.stageTimer = -1
   game.ents = []
-  game.souls = []
   game.attacks = []
+  game.levelEditor = false
   game.map = new Array(MAP_SIZE).fill([0, 0])
+  game.souls[0].hosted = 0
 }
 
-export const setupGame = (game: Game, stage: number) => {
-  clearGame(game)
-  game.stageTimes[game.stage] = game.stageTimer
-  game.stage = stage
-
-  let soulX = MAP_WIDTH / 2 * 16, soulY = MAP_HEIGHT / 2 * 16
-
-  localStorage.setItem('soulsurf', JSON.stringify({ stage: game.stage }))
-
-  const decoded = decode(stages[stage])
-  if (decoded)
-    game.map = decoded
+export const setupGame = (game: Game, map: Map) => {
+  game.map = map
+  let soulX = WIDTH / 2, soulY = HEIGHT / 2
 
   game.map.forEach(([type, ...params], i) => {
     const tx = i % MAP_WIDTH
@@ -225,7 +319,23 @@ export const setupGame = (game: Game, stage: number) => {
     }
   })
 
-  game.souls.push(createSoul(0, soulX, soulY))
+  game.souls[0].x = soulX
+  game.souls[0].y = soulY
+  game.souls[0].xs = 0
+  game.souls[0].ys = 0
+  game.souls[0].hosted = 0
+}
+
+export const gotoStage = (game: Game, stage: number) => {
+  clearGame(game)
+  game.stageTimes[game.stage] = game.stageTimer
+  game.stageTimer = -1
+  game.stage = stage
+
+  const decoded = decode(stages[stage])
+  if (decoded) {
+    setupGame(game, decoded)
+  }
 
   if (!stage) {
     const e = createEntity(TYPE_PROTAGONIST, -8, 160, 0)
@@ -233,6 +343,5 @@ export const setupGame = (game: Game, stage: number) => {
     e.dead = false
     game.ents.push(e)
     game.souls[0].hosted = e
-    // game.souls[0].lastHosted = e
   }
 }

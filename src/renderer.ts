@@ -16,6 +16,7 @@ const SHADER_SOURCES = [
 
 export const WIDTH = 272
 export const HEIGHT = 272
+const TILES_PER_ROW = 16
 
 export const SPRITE_SOUL = [0, 0]
 export const SPRITE_CHARS = [0, 1]
@@ -43,7 +44,11 @@ export const SPRITE_FRAME = [8, 10, 2, 2, .5, .5]
 export const SPRITE_PORTAL = [4, 10, 2, 2, .5, .5]
 export const SPRITE_LIGHTNING = [6, 10, 2, 2]
 export const SPRITE_LOGO = [0, 12, 12, 3, .5, .5]
-export const SPRITE_CONGRATS = [0, 15, 5, 1, .5, .5]
+export const SPRITE_CONGRATS = [12, 12, 4, 1, .5, .5]
+export const SPRITE_TEXT_TOTAL = [12, 13, 4, 1, .5, 1]
+export const SPRITE_TEXT_PRESS_RETURN = [12, 14, 4, 1, .5, 1]
+export const SPRITE_LABEL = [0, 15, 4, 1, .5, 1]
+export const SPRITE_KEYBOARD_MANUAL = [10, 10, 6, 2, 0, 1]
 
 const programs: WebGLProgram[] = []
 let tileTexture: WebGLTexture
@@ -90,7 +95,6 @@ export const end = () => {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 6)
 }
 
-const TILES_PER_ROW = 16
 export const sprite = (tile: number[], tileOffset: number, x: number, y: number, transforms: (number|undefined)[] = []) => {
   const [tx, ty, tw = 1, th = 1, cx = .5, cy = 1] = tile
   const [xscale = 1, yscale = 1, rotation = 0] = transforms
@@ -109,7 +113,6 @@ export const sprite = (tile: number[], tileOffset: number, x: number, y: number,
   const yy = ty + yOffset * th
 
   gl.uniform4f(getUniformLocation(SHADER_MAIN, 'u_tile'), xx, yy, tw, th)
-  // gl.uniform1f(getUniformLocation(SHADER_MAIN, 'u_t'), Date.now() / 1000)
   gl.uniformMatrix3fv(getUniformLocation(SHADER_MAIN, 'u_mat'), false, mat)
 
   gl.bindTexture(gl.TEXTURE_2D, tileTexture)

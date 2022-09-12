@@ -13,21 +13,14 @@ export const createRng = (seed: number) => {
 
 const memoCache: Record<string, [string, any]> = {}
 
-export const memo = <T>(cb: () => T, args: any[]): T => {
+export const memo = <T>(id: string, cb: () => T, args: any[]): T => {
   const argString = JSON.stringify(args)
-  if (memoCache[cb.name] && memoCache[cb.name][0] === argString) {
-    return memoCache[cb.name][1]
+  if (memoCache[id] && memoCache[id][0] === argString) {
+    return memoCache[id][1]
   }
-  // if (!memoCache[cb.name]) {
-  //   memoCache[cb.name] = [x, cb()]
-  // }
-  // if (memoCache[cb.name][0] === x) {
-  //   return memoCache[cb.name][1]
-  // }
 
   const result = cb()
   memoCache[cb.name] = [argString, result]
-  LOG('recalc', cb.name, memoCache)
   return result
 }
 

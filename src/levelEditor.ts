@@ -1,9 +1,9 @@
 import { getKey, getKeyPressed } from './input'
-import { renderMapChunk, getMapCoord, getMapIndexFromPosition, MAP_SIZE } from './map'
+import { renderMapChunk, getMapCoord, getMapIndexFromPosition } from './map'
 import { HEIGHT, sprite, SPRITE_SQUARE, text } from './renderer'
 import { SND_BLIP, SND_COPY, SND_PLACEBLOCK, sound } from './sound'
 import { decode, encode } from './utils'
-import { Game } from './game'
+import { Game, setupGame } from './game'
 import { NUM_BLOCK_TYPES, NUM_ENTITY_TYPES, NUM_SWITCHES } from './constants'
 
 const LEVEL_EDITOR_MAX_VALUES = [
@@ -14,7 +14,7 @@ const LEVEL_EDITOR_MAX_VALUES = [
   // SOUL SPAWN
   [],
   // PLAYER - TYPE, DEAD/ALIVE
-  [NUM_ENTITY_TYPES, 2],
+  [NUM_ENTITY_TYPES - 2, 2],
   // PICKUP
   [],
   // DOOR
@@ -61,7 +61,6 @@ export function levelEditor(game: Game) {
     const minValue = !selectedOption ? 1 : 0
     if (next >= minValue && next <= maxValue) {
       sound(SND_BLIP)
-
       if (selectedOption === 0) {
         // game.levelEditType += navUpDown
         selectedParams = [next, 0]
@@ -71,18 +70,23 @@ export function levelEditor(game: Game) {
     }
   }
 
-  if (getKeyPressed('c')) {
-    const encoded = encode(game.map)
+  if (getKeyPressed('enter')) {
+    game.levelEditor = false
+    setupGame(game, game.levelEditorMap)
+  }
+
+  if (getKeyPressed('1')) {
+    const encoded = encode(game.levelEditorMap)
     navigator.clipboard.writeText(encoded).then(() => {
       sound(SND_COPY)
     })
   }
 
-  if (getKeyPressed('v')) {
+  if (getKeyPressed('2')) {
     pasteStage().then((t) => {
       const decoded = decode(t)
       if (decoded) {
-        game.map = decoded
+        game.levelEditorMap = decoded
         sound(SND_COPY)
       }
     })
@@ -93,21 +97,24 @@ export function levelEditor(game: Game) {
   const place = (erase = false) => {
     const block = erase ? [0, 0] : [...selectedParams]
     const index = getMapIndexFromPosition(soul.x, soul.y)
-    if (game.map[index][0] != block[0]) {
+    if (game.levelEditorMap[index][0] != block[0]) {
       game.shake = 1
       sound(SND_PLACEBLOCK)
     }
-    game.map[index] = block
+    game.levelEditorMap[index] = block
   }
 
-  if (getKey('x')) {
-    place()
-  }
-  if (getKey('c')) {
-    place(true)
+  // hotfix
+  if (game.t > 30) {
+    if (getKey('x')) {
+      place()
+    }
+    if (getKey('c')) {
+      place(true)
+    }
   }
 
-  renderMapChunk(game.map, selectedParams, 1E9, 8, HEIGHT - 24, true)
+  renderMapChunk(game.levelEditorMap, selectedParams, 1E9, 8, HEIGHT - 24, true)
   sprite(SPRITE_SQUARE, 0, 8 + 24 * selectedOption, HEIGHT - 24)
   //
   sprite(SPRITE_SQUARE, 0, getMapCoord(game.souls[0].x) * 16, getMapCoord(game.souls[0].y) * 16)

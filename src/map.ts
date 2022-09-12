@@ -1,5 +1,5 @@
 import { sprite, SPRITE_BLOCK, SPRITE_DOOR, SPRITE_ENTITY, SPRITE_GATE, SPRITE_LASER_BEAM, SPRITE_KEY, SPRITE_TURRET, SPRITE_PLANT, SPRITE_PLATFORM, SPRITE_POINTER, SPRITE_SOUL, SPRITE_SWITCH, _tmp_frame, SPRITE_SPIKES, SPRITE_VINE } from './renderer'
-import { cos, createRng, toNumber } from './utils'
+import { cos, createRng, memo, toNumber } from './utils'
 import { CHUNK_KEY_TYPE, MAP_BLOCK, MAP_DOOR, MAP_EMPTY, MAP_GATE, MAP_HAZARD, MAP_LASER_TURRET, MAP_PICKUP, MAP_PLAYER_SPAWN, MAP_SOUL_SPAWN, MAP_SWITCH } from './constants'
 
 export type MapChunk = number[]
@@ -71,7 +71,6 @@ export const onTouchChunk = (map: Map, type: number, [x, y]: number[], cb: (c: M
 
 export const onTouchLaser = (map: Map, [x, y]: number[], cb: (c: number) => void) => {
   const lasers = getLaserBeams(map)
-  // const mapIndex = getMapIndexFromPosition(x, y)
   const _x = getMapCoord(x), _y = getMapCoord(y)
 
   // min-max makes beam repeat beyond level
@@ -87,12 +86,9 @@ export const getDoorOpen = (map: Map) => {
 }
 
 
-// let prevLaserArgs = ''
-// let prevLaserResponse: number[] = []
-export const getLaserBeams = (map: Map) => {
+export const getLaserBeams = (map: Map) => memo('lasers', () => {
   const lasers = new Array<number>(MAP_SIZE).fill(0)
   const laserDirection = [[0, 1], [1, 0], [0, -1], [-1, 0]]
-
   map
     .forEach(([type, ...params], i) => {
       if (type != MAP_LASER_TURRET || !getSwitchableActive(map, params)) {
@@ -122,7 +118,7 @@ export const getLaserBeams = (map: Map) => {
       })
     })
   return lasers
-}
+}, map)
 
 export const renderMapChunk = (map: Map, chunk: number[], index: number, x: number, y: number, drawHidden = false) => {
   const [type, ...params] = chunk
@@ -146,7 +142,8 @@ export const renderMapChunk = (map: Map, chunk: number[], index: number, x: numb
         for (let xOffset = 2; xOffset--;) {
           let vineY = 0
           for (let i = 6; i--;) {
-            const stop = tileRng() < .6 || !!getSolidAtPositions(map, [[x, y + vineY]])
+            const solid = memo('vine', () => !!getSolidAtPositions(map, [[x, y + vineY]]),  [x, y + vineY])
+            const stop = tileRng() < .6 || solid
             sprite(SPRITE_VINE, toNumber(stop), x + xOffset * 8, y + vineY, [xs])
             vineY += 16
             if (stop) {
@@ -227,26 +224,6 @@ export const renderMapChunk = (map: Map, chunk: number[], index: number, x: numb
     }
   }
 }
-
-// const drawSwitch = (switchType: number, activated: boolean, adjacentBlocks: number[]) => {
-//   const [left, right, up, down] = adjacentBlocks
-//   const tileOffset = toNumber(activated) + switchType * 2
-//   const rotation = down ? 0 : up ? -2 : left ? 1 : right ? -1 : 0
-//   return sprite(SPRITE_SWITCH, tileOffset, 0, 0, [,, rotation])
-// }
-
-// const drawBlock = (blockType: number, adjacentBlocks: number[]) => {
-//   const [left, right, up, down] = adjacentBlocks
-//   const offset = left ? 1 : down ? 2 : 0
-//   const offset2 = right ? 1 : down ? 2 : 0
-//   sprite(SPRITE_BLOCK, offset, 0, 0, [])
-//   sprite(SPRITE_BLOCK, offset2, 8, 0, [-1])
-//   // TOP
-//   if (!up) {
-//     sprite(SPRITE_PLATFORM, left + blockType * 2, 0, 8, [])
-//     sprite(SPRITE_PLATFORM, right + blockType * 2, 8, 8, [-1])
-//   }
-// }
 
 export const renderMap = (map: Map, renderHidden = false) => {
   const lasers = getLaserBeams(map)

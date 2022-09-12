@@ -79,7 +79,7 @@ export const CHARACTERS: Record<number, Character> = {
     attackRange: 0,
     jumps: 0,
   }),
-  [TYPE_PROTAGONIST]: defineCharacter({ minWalkTime: 0 }),
+  [TYPE_PROTAGONIST]: defineCharacter({ minWalkTime: 0, attackRange: 0 }),
   [TYPE_FUNGUS]: defineCharacter({ minWalkTime: 1e9, jumps: 0, jumpVelocity: 0, attackRange: 0 }),
   // [TYPE_WIZARD]: defineCharacter({
   //   attackRange: 60,

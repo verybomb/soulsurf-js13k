@@ -1,10 +1,8 @@
 attribute vec2 a_pos;
 varying vec2 v_uv;
-uniform vec3 pos;
 uniform vec2 u_res;
 uniform mat3 u_mat;
 uniform vec2 u_cam;
-// uniform float u_t;
 
 void main() {
   vec3 p = u_mat * vec3(a_pos, 1);

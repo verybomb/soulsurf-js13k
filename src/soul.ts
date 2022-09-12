@@ -10,7 +10,6 @@ const SOUL_RESSURECT_DISTANCE = 32
 export type Soul = ReturnType<typeof createSoul>
 
 export const createSoul = (id: number, x: number, y: number) => ({
-  // lastHosted: 0 as Entity | 0,
   hosted: 0 as Entity | 0,
   transition: 0,
   xs: 0,
@@ -56,7 +55,6 @@ export const updateSoul = (game: Game, self: Soul) => {
     }
     return [entity, 0]
   }, [, SOUL_RESSURECT_DISTANCE])
-
 
   if (!self.hosted) {
     self.xs += (moveX - self.xs) * .1

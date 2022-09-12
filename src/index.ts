@@ -1,7 +1,7 @@
 import { loadImage } from './webgl'
 import { FRAMERATE } from './constants'
 import { eventListeners, updateKeyPress } from './input'
-import { createGame, setupGame, updateGame } from './game'
+import { createGame, gotoStage, updateGame } from './game'
 import {
   begin,
   end,
@@ -14,7 +14,7 @@ const runApp = async (tileImage: HTMLImageElement) => {
 
   eventListeners()
   setTileTexture(tileImage)
-  setupGame(game, 0)
+  gotoStage(game, 0)
 
   const animate = () => {
     begin(game)

@@ -4,7 +4,7 @@ import { sin, toNumber } from './utils'
 import { HEIGHT, sprite, SPRITE_BOW, SPRITE_ENTITY, SPRITE_SKULL, SPRITE_SWORD, WIDTH } from './renderer'
 import { getDoorOpen, getMapCoord, getSolidAtPositions, MAP_HEIGHT, onTouchChunk, onTouchLaser } from './map'
 import { BLOCK_TYPE_SPRING, CHARACTERS, CHUNK_KEY_SWITCH_ACTIVE, CHUNK_KEY_SWITCH_TIMER, CHUNK_KEY_TYPE, GRAVITY, JUMP_FRAME_THRESHOLD, MAP_BLOCK, MAP_DOOR, MAP_HAZARD, MAP_PICKUP, MAP_SWITCH, TYPE_ALIEN, TYPE_ARCHER, TYPE_FUNGUS, TYPE_KNIGHT } from './constants'
-import { Game, setupGame } from './game'
+import { enterLevelEditor, Game, gotoStage, tmpTimeouts } from './game'
 import { getInitialAttack, updateAttack } from './attack'
 
 type EntityType = number
@@ -34,30 +34,28 @@ export const createEntity = (type: EntityType, x: number, y: number, lives = 0) 
 export const updateEntity = (game: Game, self: Entity) => {
   const character = CHARACTERS[self.type]
   const isHost = self.host > -1
-  const canControl = isHost && game.stage > 0
+  const canControl = isHost && game.stage != 0
 
   const [leftKey, rightKey, upKey, downKey, keyAction] = getKeySet()
   const inputKeyDown = getKeyPressed(downKey, canControl)
 
   const inputKeyUp = (() => {
     if (!game.stage) {
-      return game.t === 240 ? 1 : 0
+      return !self.dead && game.t === 240 ? 1 : 0
     }
     return getKeyPressed(upKey, canControl)
   })()
   const inputMoveX = (() => {
     if (!game.stage) {
-      if (self.dead) return 0
-      if ((game.t > 120 && game.t < 140) || (game.t > 200))
+      if (!self.dead && ((game.t > 120 && game.t < 140) || (game.t > 200)))
         return 1
-      // return !self.dead && game.t > 120 ? 1 : 0
     }
     return getKey(rightKey, canControl) - getKey(leftKey, canControl)
   })()
 
   const moveX = self.walkTime > character.minWalkTime ? inputMoveX : 0
   const inAir = self.timeInAir > -1
-  const outsideMap = self.y < -32 || self.y > MAP_HEIGHT * 16 + 8
+  const outsideMap = self.y < -32 || self.y > MAP_HEIGHT * 16
 
   if (inputKeyUp) {
     self.jumpFrame = game.t
@@ -84,10 +82,6 @@ export const updateEntity = (game: Game, self: Entity) => {
     }
   }
 
-  // if (game.introLightning) {
-  //   die()
-  // }
-
   const jump = () => {
     if (!character.jumpVelocity) {
       return
@@ -105,7 +99,7 @@ export const updateEntity = (game: Game, self: Entity) => {
       if (!inAir) {
         self.timeInAir = 0
       }
-      self.jumpFrame = 0 // reset jump t
+      self.jumpFrame = 0
       sound(SND_JUMP)
     }
   }
@@ -155,7 +149,6 @@ export const updateEntity = (game: Game, self: Entity) => {
   const floorIsSpring = floor && floor[0] === MAP_BLOCK && floor[1] === BLOCK_TYPE_SPRING
 
   if (inputMoveX && self.type != TYPE_FUNGUS) {
-    // const wall2 = getSolidAtPositions(game.map, [[self.x + self.dir * 9, self.y]])
     if (self.attackCharge < 0) {
       self.dir = inputMoveX
     }
@@ -176,10 +169,11 @@ export const updateEntity = (game: Game, self: Entity) => {
         const interval = setInterval(() => {
           sound(SND_CLICK)
         }, 1000)
-        setTimeout(() => {
+        tmpTimeouts.push(interval)
+        tmpTimeouts.push(setTimeout(() => {
           clearTimeout(interval)
           chunk[CHUNK_KEY_SWITCH_ACTIVE] = toNumber(!chunk[CHUNK_KEY_SWITCH_ACTIVE])
-        }, chunk[CHUNK_KEY_SWITCH_TIMER] * 1000)
+        }, chunk[CHUNK_KEY_SWITCH_TIMER] * 1000))
       }
     }
   })
@@ -187,7 +181,10 @@ export const updateEntity = (game: Game, self: Entity) => {
   onTouchChunk(game.map, MAP_DOOR, [self.x, self.y], () => {
     if (getDoorOpen(game.map) && inputKeyDown) {
       sound(SND_PICKUP2)
-      setupGame(game, game.stage + 1)
+      if (game.stage < 0) {
+        enterLevelEditor(game)
+      } else
+        gotoStage(game, game.stage + 1)
     }
   })
 
@@ -201,8 +198,6 @@ export const updateEntity = (game: Game, self: Entity) => {
   onTouchLaser(game.map, [self.x, self.y], (laserDirection) => {
     if (laserDirection === 1)
       self.x = getMapCoord(self.x - self.dir * 8) * 16
-    // if (laserDirection === 2)
-    //   self.y = getMapCoord(self.y - self.dir * 8) * 16
     die()
   })
   onTouchChunk(game.map, MAP_HAZARD, [self.x, self.y], () => {
@@ -271,7 +266,6 @@ export const updateEntity = (game: Game, self: Entity) => {
       self.ys += GRAVITY * self.gravity
     }
 
-    // const coyoteTime = self.timeInAir < 10
     if (jumpFrame < JUMP_FRAME_THRESHOLD) {
       if (self.jumps > 0) {
         jump()
@@ -305,7 +299,7 @@ export const updateEntity = (game: Game, self: Entity) => {
     self.rotation += (sin(self.walkTime / 2) * .3 - self.rotation) * .5
   }
 
-  /////////////// RENDER
+  // RENDER
   const dead = self.dead && self.host < 0
   const tileOffset = self.type * 2 + toNumber(dead)
   const yOffset = self.gravity < 0 ? 16 : 0
@@ -336,7 +330,6 @@ export const updateEntity = (game: Game, self: Entity) => {
     )
     if (self.attackCharge > 0) {
       const attack = { ...inititalAttack }
-      // const timeScale = character.attackRange / 20
       for (let i = 0; i < character.attackRange; i++) {
         updateAttack(game, attack, 1, i % 10 === 0)
       }
