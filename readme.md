@@ -3,6 +3,8 @@ Resurrect dead heroes and use their various attributes to navigate the levels.
 
 JS13K 2022 Entry
 
+![Soul Surf](soulsurf.png)
+
 ## **⌨️ CONTROLS**
 ### **General**
 * R = Reset stage

@@ -1,7 +1,7 @@
 import { cos, sin } from './utils'
 
 // ZzFXMicro - Zuper Zmall Zound Zynth - v1.1.7 ~ 900 bytes minified
-const zzfxV = .05 // volume
+const zzfxV = .25 // volume
 const zzfxX = new AudioContext // audio context
 const zzfx =    // play sound
 (p = 1, k = .05, b = 220, e = 0, r = 0, t = .1, q = 0, D = 1, u = 0, y = 0, v = 0, z = 0, l = 0, E = 0, A = 0, F = 0, c = 0, w = 1, m = 0, B = 0) => {
